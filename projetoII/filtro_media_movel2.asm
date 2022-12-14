@@ -306,9 +306,6 @@ tendencia:
 	la $s6, buffer_tendencia_1
 	la $s7, buffer_tendencia_2
 	
-	# buffer dos dados
-	la $s2, dados
-	
 	# escrevendo na tela as mensagens do menu
 	li $v0, 4
 	la $a0, tendencia_0
@@ -318,45 +315,55 @@ tendencia:
 	li $v0, 4
 	la $a0, tendencia_1
 	syscall
-	
+		
 	# lendo o valor de n da 1° MMn
 	li $v0, 5				
 	syscall
-	move $t0, $v0
+	move $t8, $v0
 
 	# lendo o valor de n da 2° MMn
 	li $v0, 5				
 	syscall
-	move $t1, $v0
-
-	blt $t0, $t1, nao_troca_valores
+	move $t9, $v0
 	
-	# troca os valores p/ $t0 ter sempre o menor valor
-	move $t2, $t0
-	move $t0, $t1
-	move $t1, $t2
+	blt $t8, $t9, nao_troca_valores
+	
+	# troca os valores p/ $t8 ter sempre o menor valor
+	move $t2, $t8
+	move $t8, $t9
+	move $t9, $t2
 	
 	nao_troca_valores:
 		# adicionando o n e o endereço do buffer das respostas p/ o procedimento usar	
-		move $a0, $t0
+		move $a0, $t8
 		move $a1, $s6
 
+		# $s6 e $s7 contem o endereço p/ as médias
+		la $s6, buffer_tendencia_1
+		la $s7, buffer_tendencia_2
+	
 		# chamando o procedimento que calcula as médias móveis
 		jal calculadora_media_movel
 
+		# chamando o procedimento para zerar o buffer
+		jal zera_buffer
+
 		# adicionando o n e o endereço do buffer das respostas p/ o procedimento usar	
-		move $a0, $t1
+		move $a0, $t9
 		move $a1, $s7
 
 		# chamando o procedimento que calcula as médias móveis
 		jal calculadora_media_movel
 		
+		# buffer dos dados
+		la $s2, dados
+	
 		li $v0, 4 	
 		la $a0, tendencia_2
 		syscall
 
 		li $v0, 1	
-		move $a0, $t0
+		move $a0, $t8
 		syscall
 	
 		li $v0, 4 	
@@ -364,7 +371,7 @@ tendencia:
 		syscall
 		
 		li $v0, 1	
-		move $a0, $t1
+		move $a0, $t9
 		syscall
 	
 		li $v0, 4 	
@@ -380,7 +387,7 @@ tendencia:
 		lw $t3, 0($s0)
 	
 		# auxiliar p/ loop
-		addi $t2, $zero, -1
+		addi $t2, $zero, 0
 		
 		# percorrer os buffers printando as respostas
 		loop_buffers_respostas:
@@ -389,7 +396,7 @@ tendencia:
 			l.s $f1, 0($s6)
 			l.s $f2, 0($s7)
 			
-			# imprimindo os valores no console
+			# imprimindo os valores dos dados
 			mov.s $f12, $f0
     		li $v0, 2
     		syscall
@@ -398,7 +405,7 @@ tendencia:
 			la $a0, tendencia_5
 			syscall
 			
-			# imprimindo os valores no console
+			# imprimindo os valores do buffer-1
 			mov.s $f12, $f1
     		li $v0, 2
     		syscall
@@ -407,7 +414,7 @@ tendencia:
 			la $a0, tendencia_5
 			syscall
 
-			# imprimindo os valores no console
+			# imprimindo os valores do buffer-2
 			mov.s $f12, $f2
     		li $v0, 2
     		syscall
@@ -416,28 +423,25 @@ tendencia:
 			la $a0, tendencia_5
 			syscall
 		
-			blt $t0, $t1, primeiro_menor
-			ble $t0, $t1, dois_iguais
-			bgt $t0, $t1, primeiro_maior
+			c.lt.s $f1, $f2
+			bc1t primeiro_menor
+			
+			c.eq.s $f1, $f2
+			bc1t constante
+			
+			c.lt.s $f2, $f1
+			bc1t primeiro_maior
 		
-			primeiro_menor:
-				beq $t5, 1, queda
+			primeiro_menor:				
 				beq $t5, 0, constante
-				
-				#addi $t5, $zero, 0
 				j queda
-				
-							
+					
 			dois_iguais:
 				bge $t5, 0, constante
-					
 				j constante
 				
-			
 			primeiro_maior:
 				beq $t5, 1, constante
-				beq $t5, 0, alta
-				
 				j alta
 				
 			queda:
@@ -465,7 +469,6 @@ tendencia:
 			
 				j final_loop_buffers
 			
-			
 			final_loop_buffers:
 				li $v0, 4 	
 				la $a0, quebra
@@ -492,7 +495,7 @@ zera_buffer:
 	la $s4, buffer_media
 	
 	# auxiliar p/ o loop
-	addi $t9, $zero, 0
+	addi $t7, $zero, 0
 	sub.s $f3, $f3, $f3
 	
 	# loop para zerar os valores do buffer novamente
@@ -504,10 +507,10 @@ zera_buffer:
 		addi $s4, $s4, 4
 		
 		# incrementa auxiliar
-		addi $t9, $t9, 1
+		addi $t7, $t7, 1
 		
 		# 10 pq é o valor máximo do buffer
-		blt $t9, 10, loop_zera_buffer
+		blt $t7, 10, loop_zera_buffer
 	
 	lw $ra, 0($sp)
 	addi $sp, $sp, 4
@@ -596,8 +599,6 @@ calculadora_media_movel:
 			addi $t4, $t4, 1
 			
 			blt $t4, $t7, calculando_media
-		
-		# armazenando os valores no buffer passado por $a1
 
 		div.s $f3, $f3, $f5
 		s.s $f3, ($a1)
