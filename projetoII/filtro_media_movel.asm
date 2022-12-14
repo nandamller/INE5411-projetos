@@ -63,7 +63,6 @@
 
 .text
 	# $s0 é usado p/ o valor de N elementos
-	la $s0, N
 	# $s1 é usado p/ a escolha no menu
 	la $s2, dados 		# endereço dos dados	
 	# $s3 é usado p/ o valor de n na MMn
@@ -221,6 +220,21 @@ media_movel:
 	# $f2 armazena valores de Entradas
 	l.s	$f2, 0($s2)
 	
+	# auxiliar p/ o loop
+	addi $t2, $zero, 0
+	sub.s $f3, $f3, $f3
+	
+	# loop para zerar os valores do buffer novamente
+	loop_zera_buffer:
+		s.s $f3, ($s4)
+		
+		addi $s4, $s4, 4
+		
+		# incrementa auxiliar
+		addi $t2, $t2, 1
+		
+		blt $t2, $t0, loop_zera_buffer
+	
 	# imprimindo os labels na tela
 	li $v0, 4
 	la $a0, calculo_mmn_0
@@ -363,13 +377,15 @@ calculadora_media_movel:
     
 	la $s4, buffer_media
 	la $s5, media
-	move $t0, $a0
+	move $t8, $a0
+		
+	la $s4, buffer_media
 	
 	# auxiliar p/ loop		
-	addi $t1, $zero, 1
+	addi $t3, $zero, 1
 		
 	# auxiliar p/ as posições no buffer
-	addi $t2, $t0, -2	# precisa fazer um tratamento p/ quando for menor que 3
+	addi $t2, $t8, -2	# precisa fazer um tratamento p/ quando for menor que 3
 	mul $t2, $t2, 4
 	add $t2, $t2, $s4
 
@@ -385,10 +401,10 @@ calculadora_media_movel:
 		subi $t2, $t2, 4
 			
 		# incrementa auxiliar
-		addi $t1, $t1, 1
+		addi $t3, $t3, 1
 		
-		beq $t1, $t0, last_buffer_element_proc
-		blt $t1, $t0, loop_buffer_proc
+		beq $t3, $t8, last_buffer_element_proc
+		blt $t3, $t8, loop_buffer_proc
 		
 	# adicionando o próximo elemento no buffer que vai ser o próximo elemento dos dados
 	last_buffer_element_proc:
@@ -410,7 +426,7 @@ calculadora_media_movel:
 
 	calculando_media_proc:
 		l.s	$f2, 0($s4)
-		
+    
 		add.s $f3, $f3, $f2
    		
 		# calculando o endereço absoluto p/ o próximo valor (se tiver)
@@ -418,15 +434,15 @@ calculadora_media_movel:
 			
 		addi $t4, $t4, 1
 
-		blt $t4, $t0, calculando_media_proc
+		blt $t4, $t8, calculando_media_proc
 	
 	# convertendo o N p/ float p/ a divisão
-	mtc1 $t0, $f5
+	mtc1 $t8, $f5
 	cvt.s.w $f5, $f5
 
 	div.s $f3, $f3, $f5
 	s.s $f3, ($s5) # salvando o valor da media em $s5
-    
+
 	lw $a1, 0($sp)
 	lw $a0, 4($sp)
 	lw $ra, 8($sp)
@@ -434,6 +450,23 @@ calculadora_media_movel:
 	jr $ra
 
 tendencia:
+	la $s4, buffer_media
+	
+	# auxiliar p/ o loop
+	addi $t2, $zero, 0
+	sub.s $f2, $f2, $f2
+	
+	# loop para zerar os valores do buffer novamente
+	loop_zera_buffer_tendencia:
+		s.s $f2, ($s4)
+		
+		addi $s4, $s4, 4
+		
+		# incrementa auxiliar
+		addi $t2, $t2, 1
+		
+		blt $t2, $t0, loop_zera_buffer_tendencia
+
 	# escrevendo na tela as mensagens do menu
 	li $v0, 4
 	la $a0, tendencia_0
@@ -454,22 +487,26 @@ tendencia:
 	syscall
 	move $t1, $v0
 
-	blt $t1, $t0, loop_elements_tendencia
+	blt $t0, $t1, antes_loop_elements_tendencia
 	
 	# troca os valores p/ $t0 ter sempre o menor valor
 	move $t2, $t0
 	move $t0, $t1
 	move $t1, $t2
 	
-	la $s0, N
-	la $s2, dados
-	la $s5, media
+	# setando os auxiliares que vou precisa
+	antes_loop_elements_tendencia:
+		la $s0, N
+		lw $t6, 0($s0)
+		
+		la $s2, dados
+		la $s5, media
+		
+		# auxiliar p/ o loop
+		addi $t5, $zero, 0
 	
-	# auxiliar p/ o loop
-	addi $t2, $zero, 0
-	
-	# auxiliar
-	addi $t3, $zero, 1
+		# auxiliar
+		addi $t3, $zero, 1
 	
 	loop_elements_tendencia:
 		move $a0, $t0
@@ -479,48 +516,67 @@ tendencia:
 		# contem a media p/ o menor n
 		l.s $f1, ($s5)
 
-		move $a0, $t1
-		la $a1, ($s2)
-		jal calculadora_media_movel		
+		#move $a0, $t1
+		#la $a1, ($s2)
+		#jal calculadora_media_movel		
 		
-		# contem a media p/ o menor n
-		l.s $f2, ($s5)
+		# convertendo o N p/ float p/ a divisão
+		mtc1 $t0, $f5
+		cvt.s.w $f5, $f5
+
+		# contem a media p/ o maior n
+		mul.s $f2, $f1, $f5
+		
+		# convertendo o N p/ float p/ a divisão
+		mtc1 $t1, $f5
+		cvt.s.w $f5, $f5
+	
+		# dividindo a média
+		div.s $f2, $f2, $f5
 	
 		# impressão do resultado
 		# imprimindo a quebra de linha
 		li 	$v0, 4
 		la	$a0, quebra
 		syscall
-
+	
 		# imprimindo os valores no console
 		mov.s $f12, $f1
    	 	li $v0, 2
     	syscall
+    	
+    	# imprimindo a vírgula
+		li 	$v0, 4
+		la	$a0, virgula
+		syscall
 
     	# imprimindo os valores no console
 		mov.s $f12, $f2
    	 	li $v0, 2
     	syscall
     	
-    	# se $f1 menor ou igual a $f2
-    	c.le.s $f1, $f2
-    	bc1t compara_menor
+    	# imprimindo a quebra de linha
+		li 	$v0, 4
+		la	$a0, quebra
+		syscall
     	
-    	compara_menor:
-    		beq $t3, 1, constante
+    	# se $f1 menor ou igual a $f2
+    	#c.le.s $f1, $f2
+    	#bc1t compara_menor
+    	
+    	#compara_menor:
+    	#	beq $t3, 1, constante
     		
     		# baixa
     		# seta t3 p/ 0
     	
-    	constante:
-    	baixa:
-    	alta:
+    	#constante:
+    	#baixa:
+    	#alta:
      
 		# incrementando auxiliar
-		addi $t2, $t2, 1
-		
-		blt $t2, $s0, loop_elements_tendencia
-	
+		addi $t5, $t5, 1
+		blt $t5, $t6, loop_elements_tendencia
 
 end_tendencia:
 	j menu_principal
